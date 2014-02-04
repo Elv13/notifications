@@ -9,55 +9,68 @@ local pango      = require("lgi").Pango
 local pangocairo = require("lgi").PangoCairo
 
 local module = {}
-module.items_limit = 10
-module.items_max_characters = 80
 
 module.items = {}
-module.widget = nil
 module.count = 0
-module.padding = 3
 
 -- Format notifications
 local function update_notifications(data)
-    local text,icon,time,count = data.text or "N/A", data.icon or beautiful.unknown, os.date("%H:%M:%S"), 1
+    local text,icon,time,count = data.text or "N/A", (data.icon or beautiful.awesome_icon), os.date("%H:%M:%S"), 1
     if data.title and data.title ~= "" then text = "<b>"..data.title.."</b> - "..text end
-    local text = string.sub(text, 0, module.items_max_characters)
-    for k,v in ipairs(module.items) do if text == v.text then count = v.count + 1 end end
-    
+    local text = string.sub(text, 0, module.conf.max_characters)
+    for k,v in ipairs(module.items) do if text == v.text then v.count, count = v.count+1, v.count+1 end end
+    -- Presets
     if data.preset and data.preset.bg then
         -- TODO: presets
     end
-    
     if count == 1 then
-        table.insert(module.items, {text=text,icon=icon,count=count,bg=bg,time=time})
+        table.insert(module.items, { text = text, icon = icon, count = count, time = time })
         module.count = module.count + 1
     end
+    module.widget:emit_signal("widget::updated")
 end
 
 -- Reset notifications count/widget
 function module.reset()
     module.items={}
     module.count = 0 -- Reset count
-    module.widget:emit_signal("widget::updated") -- update widget
+    module.widget:emit_signal("widget::updated") -- Update widget
     if module.menu and module.menu.visible then
         module.menu.visible = false
     end
 end
 
-local function getX(i)
-    local a = screen[1].geometry.height - beautiful.default_height or 16
-    if i > module.items_limit then
-        return a - (module.items_limit * beautiful.menu_height) - 40 -- 20 per scrollbar.
-    else
-        return a- i * beautiful.menu_height
+local function getY()
+    if module.conf.direction == "top_left" or module.conf.direction == "top_right" then
+        return beautiful.menu_height or 30
+    elseif module.conf.direction == "bottom_left" or module.conf.direction == "bottom_right" then
+        local a = screen[1].geometry.height - (beautiful.default_height or 30)
+        if #module.items > module.conf.max_items then
+            return a - (module.conf.max_items * (beautiful.menu_height or 30)) - 40 -- 20 per scrollbar.
+        else
+            return a - #module.items * (beautiful.menu_height or 30)
+        end
+    elseif module.conf.direction == "center"  then
+        -- TODO: Add center direction
+        return beautiful.menu_height or 30
+    end
+end
+local function getX()
+    if module.conf.direction == "bottom_right" or module.conf.direction == "top_right" then
+        return screen[1].geometry.width
+    elseif module.conf.direction == "bottom_left" or module.conf.direction == "top_left" then
+        return 0
+    elseif module.conf.direction == "center" then
+        -- TODO: Add center direction
+        return 0
     end
 end
 function module.main()
     if module.menu and module.menu.visible then module.menu.visible = false return end
     if module.items and #module.items > 0 then
-        module.menu = radical.context({filer = false, enable_keyboard = false, direction = "bottom",
-            style = radical.style.classic, item_style = radical.item_style.classic,
-            max_items = module.items_limit, x = screen[1].geometry.width, y = getX(#module.items)
+        module.menu = radical.context({filer = false, enable_keyboard = false,
+            style = radical.style.classic,item_style = radical.item_style.classic,
+            max_items = module.conf.max_items, x = getX(), y = getY()
         })
         for k,v in ipairs(module.items) do
             module.menu:add_item({
@@ -77,7 +90,6 @@ end
 
 -- Callback used to modify notifications
 naughty.config.notify_callback = function(data)
-    module.widget:emit_signal("widget::updated")
     update_notifications(data)
     return data
 end
@@ -105,9 +117,9 @@ local function fit(self,w,height)
 end
 local function draw(self, w, cr, width, height)
     local tri_width = 3*(height/4)
-    cr:set_source(color("#00000000"))
+    cr:set_source(color(module.conf.icon_bg))
     cr:paint()
-    cr:set_source(color(beautiful.widget.fg))
+    cr:set_source(color(module.conf.icon_fg))
     cr:move_to(module.padding + tri_width/2,module.padding)
     cr:line_to(module.padding+tri_width,height-module.padding)
     cr:line_to(module.padding,height-module.padding)
@@ -118,26 +130,39 @@ local function draw(self, w, cr, width, height)
     cr:set_antialias(cairo.ANTIALIAS_SUBPIXEL)
     cr:stroke_preserve()
     cr:fill()
-    cr:set_source(color("#000000"))
+    cr:set_source(color(module.conf.icon_color))
     pl.text = "!"
     local text_ext = pl:get_pixel_extents()
-    cr:move_to(module.padding + tri_width/2-text_ext.width/2 - height/16,module.padding-text_ext.height/4+1)
+    cr:move_to(module.padding + tri_width/2-text_ext.width/2 - height/10,module.padding-text_ext.height/4+1)
     cr:show_layout(pl)
 
     pl:set_font_description(beautiful.get_font(font))
     pl.markup = "<b>"..module.count.."</b>"
     cr:move_to(tri_width+2*module.padding,module.padding-text_ext.height/4+1)--,-text_ext.height/2)
-    cr:set_source(color(beautiful.widget.fg))
+    cr:set_source(color(module.conf.count_fg))
     cr:show_layout(pl)
 end
 
 -- Return widget
-local function new()
+local function new(args)
+    local args = args or {}
+    module.conf = {}
+    module.conf.max_items = args.max_items or 10
+    module.conf.direction = args.direction or "top_right"
+    module.conf.max_characters = args.max_characters or 80
+    module.conf.icon_bg = beautiful.icon_grad or "#00000000"
+    module.conf.icon_fg = beautiful.bg_alternate or beautiful.fg_normal
+    module.conf.icon_color = beautiful.icon_grad or beautiful.bg_normal
+    module.conf.count_fg = beautiful.bg_alternate or beautiful.fg_normal
+    
+    module.padding = 3
+
     module.widget = wibox.widget.base.make_widget()
     module.widget.draw = draw
     module.widget.fit = fit
     module.widget:set_tooltip("Notifications")
     module.widget:buttons(awful.util.table.join(awful.button({ }, 1, module.main), awful.button({ }, 3, module.reset)))
+
     return module.widget
 end
 
