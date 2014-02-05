@@ -30,13 +30,13 @@ right_layout:add(mylayoutbox[s])
 
 ### Options
 
-| Name           | Description                                      | Type                      |
-| -------------- | ------------------------------------------------ | ------------------------- |
-| max_items      | Maximum number of items before showing scrollbar | number                    |
-| max_characters | Set the size of item in symbols                  | number                    |
-| direction      | Corner of the workarea displaying the menu.      | (bottom|top)_(right|left) |
-| icon_bg        | Background color                                 | String/gradient/pattern   |
-| icon_fg        | Icon color                                       | String/gradient/pattern   |
-| icon_color     | Icon (!) color                                   | String/gradient/pattern   |
-| count_fg       | Foreground (count) color                         | String/gradient/pattern   |
+| Name           | Description                                      | Type                    |
+| -------------- | ------------------------------------------------ | ----------------------- |
+| max_items      | Maximum number of items before showing scrollbar | number                  |
+| max_characters | Set the size of item in symbols                  | number                  |
+| direction      | Corner of the workarea displaying the menu.      | bottom/top_right/left   |
+| icon_bg        | Background color                                 | String/gradient/pattern |
+| icon_fg        | Icon color                                       | String/gradient/pattern |
+| icon_color     | Icon (!) color                                   | String/gradient/pattern |
+| count_fg       | Foreground (count) color                         | String/gradient/pattern |
 
