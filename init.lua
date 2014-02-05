@@ -16,6 +16,7 @@ module.count = 0
 -- Format notifications
 local function update_notifications(data)
     local text,icon,time,count = data.text or "N/A", (data.icon or beautiful.awesome_icon), os.date("%H:%M:%S"), 1
+    if not type(text) == "string" then return end -- avoid false negatives
     if data.title and data.title ~= "" then text = "<b>"..data.title.."</b> - "..text end
     local text = string.sub(text, 0, module.conf.max_characters)
     local text = string.gsub(text, "\n", " ") -- remove line breaks
