@@ -18,6 +18,7 @@ local function update_notifications(data)
     local text,icon,time,count = data.text or "N/A", (data.icon or beautiful.awesome_icon), os.date("%H:%M:%S"), 1
     if data.title and data.title ~= "" then text = "<b>"..data.title.."</b> - "..text end
     local text = string.sub(text, 0, module.conf.max_characters)
+    local text = string.gsub(text, "\n", " ") -- remove line breaks
     for k,v in ipairs(module.items) do if text == v.text then v.count, count = v.count+1, v.count+1 end end
     -- Presets
     if data.preset and data.preset.bg then
