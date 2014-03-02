@@ -12,15 +12,19 @@ local module = {}
 
 module.items = {}
 module.count = 0
+module.config = {}
+module.widget = nil
 
 -- Format notifications
 local function update_notifications(data)
+    if not module.widget then return end
+    if not type(data.text) == "string" then return end -- avoid false negatives
+    if data.ignore then return end -- Allow to ignore some notifications: naughty.notify({ text="foo", ignore=true })
     local text,icon,time,count = data.text or "N/A", (data.icon or beautiful.awesome_icon), os.date("%H:%M:%S"), 1
-    if not type(text) == "string" then return end -- avoid false negatives
     if data.title and data.title ~= "" then text = "<b>"..data.title.."</b> - "..text end
-    local text = string.sub(text, 0, module.conf.max_characters)
+    local text = string.sub(text, 0, (module.config.max_characters or 80))
     local text = string.gsub(text, "\n", " ") -- remove line breaks
-    for k,v in ipairs(module.items) do if text == v.text then v.count, count = v.count+1, v.count+1 end end
+    for _,v in ipairs(module.items) do if text == v.text then v.count, count = v.count+1, v.count+1 end end
     -- Presets
     if data.preset and data.preset.bg then
         -- TODO: presets
@@ -70,9 +74,13 @@ end
 function module.main()
     if module.menu and module.menu.visible then module.menu.visible = false return end
     if module.items and #module.items > 0 then
-        module.menu = radical.context({filer = false, enable_keyboard = false,
-            style = radical.style.classic,item_style = radical.item_style.classic,
-            max_items = module.conf.max_items, x = getX(), y = getY()
+        module.menu = radical.context({
+            filer = false,
+            enable_keyboard = false,
+            style = radical.style.classic,
+            item_style = radical.item.style.classic,
+            max_items = module.conf.max_items,
+            x = getX(), y = getY()
         })
         for k,v in ipairs(module.items) do
             module.menu:add_item({
@@ -135,7 +143,7 @@ local function draw(self, w, cr, width, height)
     cr:set_source(color(module.conf.icon_color))
     pl.text = "!"
     local text_ext = pl:get_pixel_extents()
-    cr:move_to(module.padding + tri_width/2-text_ext.width/2 - height/10,module.padding-text_ext.height/4+1)
+    cr:move_to(4 + tri_width/2-text_ext.width/2 - height/10,module.padding-text_ext.height/4+1)
     cr:show_layout(pl)
 
     pl:set_font_description(beautiful.get_font(font))
@@ -152,12 +160,11 @@ local function new(args)
     module.conf.max_items = args.max_items or 10
     module.conf.direction = args.direction or "top_right"
     module.conf.max_characters = args.max_characters or 80
-    module.conf.icon_bg = beautiful.icon_grad or "#00000000"
-    module.conf.icon_fg = beautiful.bg_alternate or beautiful.fg_normal
-    module.conf.icon_color = beautiful.icon_grad or beautiful.bg_normal
-    module.conf.count_fg = beautiful.bg_alternate or beautiful.fg_normal
-    
-    module.padding = 3
+    module.conf.icon_bg = args.icon_bg or beautiful.icon_grad or "#00000000"
+    module.conf.icon_fg = args.icon_fg or beautiful.bg_alternate or beautiful.fg_normal
+    module.conf.icon_color = args.icon_color or beautiful.icon_grad or beautiful.bg_normal
+    module.conf.count_fg = args.count_fg or beautiful.bg_alternate or beautiful.fg_normal
+    module.padding = args.pading or 3
 
     module.widget = wibox.widget.base.make_widget()
     module.widget.draw = draw
