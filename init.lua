@@ -17,28 +17,60 @@ module.widget = nil
 
 -- Format notifications
 local function update_notifications(data)
-    if not module.widget then return end
-    if not type(data.text) == "string" then return end -- avoid false negatives
-    if data.ignore then return end -- Allow to ignore some notifications: naughty.notify({ text="foo", ignore=true })
-    local text,icon,time,count = data.text or "N/A", (data.icon or beautiful.awesome_icon), os.date("%H:%M:%S"), 1
-    if data.title and data.title ~= "" then text = "<b>"..data.title.."</b> - "..text end
-    local text = string.sub(text, 0, (module.config.max_characters or 80))
-    local text = string.gsub(text, "\n", " ") -- remove line breaks
-    for _,v in ipairs(module.items) do if text == v.text then v.count, count = v.count+1, v.count+1 end end
+    -- allow to ignore notifications: naughty.notify({ text="foo", ignore=true })
+    if data.ignore then return end
+    -- avoid false negatives
+    if not module.widget or not type(data.text) == "string" then return end
+    -- start counter
+    local count = 1
+    -- time format
+    local time = os.date("%H:%M:%S")
+    -- background color
+    local bg = "#FF0000"
+    -- set icon
+    local icon = data.icon or beautiful.awesome_icon
+    -- set text
+    local text = data.text or "N/A"
+    -- cleanup 
+    local text = string.gsub(text, "\n", " ")  -- remove line breaks
+    local text = string.gsub(text, "%s+", " ") -- remove whitespace
+    local text = string.gsub(text, "%b<>", "") -- remove everything in brackets
+    local text = string.format("%.80s", text)  -- truncate
+
+    -- merge title
+    if data.title then 
+        text = string.format("<b>%.20s</b> %s", data.title, text)
+    end
+
+    -- Don't add dublicate items
+    for _,v in ipairs(module.items) do
+        if text == v.text then
+            v.count, count = v.count+1, v.count+1
+        end
+    end
+
     -- Presets
-    if data.preset and data.preset.bg then
-        -- TODO: presets
+    if data.preset then
+        if data.preset.bg then bg = data.preset.bg end
     end
+
     if count == 1 then
-        table.insert(module.items, { text = text, icon = icon, count = count, time = time })
-        module.count = module.count + 1
+        local item = { 
+            text = text, icon = icon, 
+            count = count, time = time, 
+            bg = bg 
+        }
+        table.insert(module.items, item)
+        module.count = module.count+1
     end
+    
+    -- Update widget
     module.widget:emit_signal("widget::updated")
 end
 
 -- Reset notifications count/widget
 function module.reset()
-    module.items={}
+    module.items = {}
     module.count = 0 -- Reset count
     module.widget:emit_signal("widget::updated") -- Update widget
     if module.menu and module.menu.visible then
@@ -71,6 +103,7 @@ local function getX()
         return 0
     end
 end
+
 function module.main()
     if module.menu and module.menu.visible then module.menu.visible = false return end
     if module.items and #module.items > 0 then
@@ -78,7 +111,7 @@ function module.main()
             filer = false,
             enable_keyboard = false,
             style = radical.style.classic,
-            item_style = radical.item.style.classic,
+            --item_style = radical.item.style.classic,
             max_items = module.conf.max_items,
             x = getX(), y = getY()
         })
@@ -91,7 +124,8 @@ function module.main()
                     module.menu.visible = false
                     module.main() -- display the menu again
                 end,
-                text=v.text, icon=v.icon, underlay = v.count, tooltip = v.time
+                text=v.text, icon=v.icon, underlay = v.count,
+                tooltip = v.time, bg = v.bg
             })
         end
         module.menu.visible = true
@@ -159,7 +193,6 @@ local function new(args)
     module.conf = {}
     module.conf.max_items = args.max_items or 10
     module.conf.direction = args.direction or "top_right"
-    module.conf.max_characters = args.max_characters or 80
     module.conf.icon_bg = args.icon_bg or beautiful.icon_grad or "#00000000"
     module.conf.icon_fg = args.icon_fg or beautiful.bg_alternate or beautiful.fg_normal
     module.conf.icon_color = args.icon_color or beautiful.icon_grad or beautiful.bg_normal
